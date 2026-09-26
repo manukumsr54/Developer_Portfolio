@@ -67,6 +67,102 @@ export default function AtmosphericHaze({
     const isMobile = window.innerWidth < 768
     const effectiveLayers = isMobile ? Math.min(layers, 2) : layers
     const blobs = []
+    const glitterParticles = []
+
+    // Interactive atmospheric click & hold glitter state
+    let isPressed = false
+    let lastHoldTime = 0
+    let pointerCanvas = { x: 0, y: 0 }
+
+    const glitterPalettes = [
+      '255, 255, 255', // Pure soft white
+      '248, 250, 252', // Slate white
+      '224, 242, 254', // Pale cyan-white
+      '186, 230, 253', // Soft celestial cyan
+      '147, 197, 253', // Subtle electric blue-white
+    ]
+
+    const emitGlitter = (originX, originY, count = 8, isHold = false) => {
+      for (let i = 0; i < count; i++) {
+        if (glitterParticles.length >= 45) {
+          glitterParticles.shift()
+        }
+
+        const angle = Math.random() * Math.PI * 2
+        // Gentle, short-lived outward velocity with a subtle bias rightward (+0.25)
+        // to blend organically into the existing left → right atmospheric drift
+        const speed = isHold ? (0.25 + Math.random() * 0.45) : (0.35 + Math.random() * 0.75)
+        const vx = Math.cos(angle) * speed + 0.25
+        const vy = Math.sin(angle) * speed * 0.85
+
+        glitterParticles.push({
+          x: originX + (Math.random() - 0.5) * (isHold ? 5 : 3),
+          y: originY + (Math.random() - 0.5) * (isHold ? 5 : 3),
+          vx,
+          vy,
+          size: 1.0 + Math.random() * 0.9, // 1–2px
+          birth: performance.now(),
+          lifetime: isHold ? (520 + Math.random() * 420) : (680 + Math.random() * 520),
+          baseAlpha: 0.55 + Math.random() * 0.40,
+          color: glitterPalettes[Math.floor(Math.random() * glitterPalettes.length)],
+          sparkleBoost: Math.random() > 0.4 ? (0.3 + Math.random() * 0.5) : 0, // A few particles briefly sparkle brighter
+          sparkleSpeed: 0.012 + Math.random() * 0.02,
+          sparklePhase: Math.random() * Math.PI * 2,
+        })
+      }
+    }
+
+    const handlePointerDown = (e) => {
+      if (prefersReduced) return
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      if (e.target && e.target.closest) {
+        const isInteractive = e.target.closest(
+          'button, a, input, textarea, select, nav, [role="button"], [role="img"], [data-cursor="grow"], [data-no-ripple]'
+        )
+        if (isInteractive) return
+      }
+      if (window.getSelection && window.getSelection().toString().trim().length > 0) {
+        return
+      }
+
+      const rect = canvas.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+
+      if (x < 0 || x > rect.width || y < 0 || y > rect.height) return
+
+      isPressed = true
+      pointerCanvas = { x, y }
+      lastHoldTime = performance.now()
+
+      // Initial cluster of 6–10 tiny luminous glitter particles directly at interaction point
+      emitGlitter(x, y, isMobile ? 6 : 9, false)
+    }
+
+    const handlePointerMoveCoords = (e) => {
+      if (!isPressed) return
+      const rect = canvas.getBoundingClientRect()
+      pointerCanvas = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      }
+    }
+
+    const handlePointerUp = () => {
+      isPressed = false
+    }
+
+    const handlePointerCancel = () => {
+      isPressed = false
+    }
+
+    const container = canvas.parentElement || canvas
+    if (interactive) {
+      container.addEventListener('pointerdown', handlePointerDown, { passive: true })
+      window.addEventListener('pointermove', handlePointerMoveCoords, { passive: true })
+      window.addEventListener('pointerup', handlePointerUp, { passive: true })
+      window.addEventListener('pointercancel', handlePointerCancel, { passive: true })
+    }
 
     /**
      * Parallax Speed Tiers (Normalized Screen Width per Frame @ 60fps)
@@ -108,39 +204,39 @@ export default function AtmosphericHaze({
           layer === 0
             ? 340 + Math.random() * 200 // Expansive back clouds
             : layer === 1
-            ? 240 + Math.random() * 160 // Structured mid body
-            : 160 + Math.random() * 120 // Ethereal front wisps
+              ? 240 + Math.random() * 160 // Structured mid body
+              : 160 + Math.random() * 120 // Ethereal front wisps
 
         const radiusY =
           layer === 0
             ? 180 + Math.random() * 110
             : layer === 1
-            ? 120 + Math.random() * 80
-            : 85 + Math.random() * 60
+              ? 120 + Math.random() * 80
+              : 85 + Math.random() * 60
 
         // Calibrated color palettes: deep ocean blue → celestial cyan
         const hue =
           layer === 0
             ? 214 + Math.random() * 10 // Deep atmospheric indigo-blue (214–224)
             : layer === 1
-            ? 204 + Math.random() * 12 // Electric blue to cyan-blue (204–216)
-            : 196 + Math.random() * 12 // Luminous sky cyan (196–208)
+              ? 204 + Math.random() * 12 // Electric blue to cyan-blue (204–216)
+              : 196 + Math.random() * 12 // Luminous sky cyan (196–208)
 
         const saturation = 70 + Math.random() * 22
         const lightness =
           layer === 0
             ? 38 + Math.random() * 8
             : layer === 1
-            ? 46 + Math.random() * 8
-            : 54 + Math.random() * 10
+              ? 46 + Math.random() * 8
+              : 54 + Math.random() * 10
 
         // Opacity tuning per layer
         const baseOpacity =
           layer === 0
             ? 0.055 + Math.random() * 0.035
             : layer === 1
-            ? 0.075 + Math.random() * 0.045
-            : 0.065 + Math.random() * 0.040
+              ? 0.075 + Math.random() * 0.045
+              : 0.065 + Math.random() * 0.040
 
         blobs.push({
           x: initialX,
@@ -169,6 +265,13 @@ export default function AtmosphericHaze({
 
       ctx.clearRect(0, 0, w, h)
       time += 1
+      const now = performance.now()
+
+      // Continuous low-frequency glitter emission while pointer/touch is held
+      if (isPressed && (now - lastHoldTime) >= 105) {
+        emitGlitter(pointerCanvas.x, pointerCanvas.y, Math.random() > 0.4 ? 2 : 1, true)
+        lastHoldTime = now
+      }
 
       const mx = mouseRef.current.x
       const my = mouseRef.current.y
@@ -219,6 +322,47 @@ export default function AtmosphericHaze({
         ctx.fill()
       }
 
+      // Update and render interactive atmospheric glitter dust particles
+      for (let i = glitterParticles.length - 1; i >= 0; i--) {
+        const p = glitterParticles[i]
+        const age = now - p.birth
+        if (age >= p.lifetime) {
+          glitterParticles.splice(i, 1)
+          continue
+        }
+
+        const progress = age / p.lifetime
+        // Gentle friction + left-to-right drift matching atmospheric haze
+        p.vx *= 0.985
+        p.vy *= 0.985
+        p.x += p.vx + 0.18
+        p.y += p.vy
+
+        // Quick fade-in, smooth organic fade-out
+        const fadeIn = Math.min(progress / 0.15, 1)
+        const fadeOut = Math.pow(1 - progress, 1.4)
+        const sparkle = 1 + p.sparkleBoost * Math.sin(age * p.sparkleSpeed + p.sparklePhase)
+        const alpha = Math.max(0, Math.min(1, p.baseAlpha * fadeIn * fadeOut * sparkle))
+
+        // Delicate luminous core
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(${p.color}, ${alpha})`
+        ctx.fill()
+
+        // Subtle sparkle aura for selected particles
+        if (p.sparkleBoost > 0 && sparkle > 1.25 && alpha > 0.25) {
+          const auraRadius = p.size * 2.8
+          const auraGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, auraRadius)
+          auraGrad.addColorStop(0, `rgba(${p.color}, ${alpha * 0.45})`)
+          auraGrad.addColorStop(1, `rgba(${p.color}, 0)`)
+          ctx.fillStyle = auraGrad
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, auraRadius, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
       rafId = requestAnimationFrame(animate)
     }
 
@@ -229,6 +373,10 @@ export default function AtmosphericHaze({
       window.removeEventListener('resize', resize)
       if (interactive) {
         window.removeEventListener('mousemove', handlePointerMove)
+        container.removeEventListener('pointerdown', handlePointerDown)
+        window.removeEventListener('pointermove', handlePointerMoveCoords)
+        window.removeEventListener('pointerup', handlePointerUp)
+        window.removeEventListener('pointercancel', handlePointerCancel)
       }
     }
   }, [prefersReduced, intensity, speed, layers, variant, interactive, handlePointerMove])

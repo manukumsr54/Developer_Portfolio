@@ -6,6 +6,7 @@ import { GraduationCap, Layers, Cpu, Compass, ArrowUpRight } from 'lucide-react'
 import SectionLabel from '../components/SectionLabel'
 import PointerCard from '../components/PointerCard'
 import { aboutIdentity, aboutCards } from '../data/about'
+import { LINKEDIN_URL, GITHUB_URL } from '../data/socialLinks'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -112,22 +113,36 @@ export default function About() {
               ))}
             </div>
 
-            {/* Student & College Credential Badge with generous breathing room */}
-            <div
-              className="inline-flex flex-wrap items-center gap-2 px-4.5 py-3 rounded-xl self-start mt-3"
-              style={{
-                background: 'rgba(59, 130, 246, 0.05)',
-                border: '1px solid rgba(59, 130, 246, 0.15)',
-              }}
-            >
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
-              <span className="text-xs md:text-sm font-medium text-slate-300">
-                {aboutIdentity.institution} · 2nd-Year B.Tech CSE ({aboutIdentity.cohort})
-              </span>
-              <span className="text-xs md:text-sm text-slate-500 hidden sm:inline">·</span>
-              <span className="text-xs md:text-sm font-mono text-cyan-400/90 font-medium">
-                {aboutIdentity.role}
-              </span>
+            {/* Student & College Credential Badge linking to LinkedIn */}
+            <div className="flex flex-col gap-2.5 mt-3 self-start">
+              <a
+                href={LINKEDIN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${aboutIdentity.name} on LinkedIn — ${aboutIdentity.institution}`}
+                className="inline-flex flex-wrap items-center gap-2 px-4.5 py-3 rounded-xl transition-all duration-200 hover:border-cyan-400/40 hover:bg-blue-500/10 group cursor-pointer text-decoration-none"
+                style={{
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  border: '1px solid rgba(59, 130, 246, 0.15)',
+                }}
+              >
+                <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse shrink-0" />
+                <span className="text-xs md:text-sm font-semibold text-white group-hover:text-cyan-300 transition-colors">
+                  {aboutIdentity.name}
+                </span>
+                <span className="text-xs md:text-sm text-slate-500">·</span>
+                <span className="text-xs md:text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+                  {aboutIdentity.institution}
+                </span>
+                <span className="text-xs md:text-sm text-slate-500 hidden sm:inline">·</span>
+                <span className="text-xs md:text-sm font-mono text-cyan-400/90 font-medium">
+                  2nd-Year B.Tech CSE ({aboutIdentity.cohort})
+                </span>
+                <ArrowUpRight
+                  size={14}
+                  className="text-slate-500 transition-transform duration-200 group-hover:text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ml-1"
+                />
+              </a>
             </div>
           </div>
 
@@ -144,24 +159,33 @@ export default function About() {
               const accentColor = isCyan
                 ? 'var(--color-accent-cyan)'
                 : isViolet
-                ? 'var(--color-accent-violet)'
-                : 'var(--color-accent-blue)'
+                  ? 'var(--color-accent-violet)'
+                  : 'var(--color-accent-blue)'
 
               const glowColor = isCyan
                 ? 'rgba(34, 211, 238, 0.14)'
                 : isViolet
-                ? 'rgba(139, 92, 246, 0.14)'
-                : 'rgba(59, 130, 246, 0.16)'
+                  ? 'rgba(139, 92, 246, 0.14)'
+                  : 'rgba(59, 130, 246, 0.16)'
+
+              // Card 2 "Full-Stack Development" navigates to GitHub; others navigate to LinkedIn as requested
+              const isFullStack = card.id === 'focus' || card.title.toLowerCase().includes('full-stack')
+              const cardUrl = isFullStack ? GITHUB_URL : LINKEDIN_URL
+              const ctaText = isFullStack ? 'EXPLORE CODE' : 'EXPLORE DETAILS'
 
               return (
                 <PointerCard
                   key={card.id}
-                  className="px-7 py-7 sm:px-8 sm:py-8 flex flex-col justify-between group"
+                  as="a"
+                  href={cardUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-7 py-7 sm:px-8 sm:py-8 flex flex-col justify-between group no-underline text-inherit cursor-pointer"
                   glowColor={glowColor}
                   borderColor="rgba(59, 130, 246, 0.25)"
                   tabIndex={0}
-                  role="region"
-                  aria-label={`${card.tag}: ${card.title}`}
+                  role="link"
+                  aria-label={`${card.tag}: ${card.title} (Opens in new tab)`}
                 >
                   <div>
                     {/* Top Row: Tag & Icon */}
@@ -209,14 +233,14 @@ export default function About() {
                   {/* Bottom accent indicator */}
                   <div className="mt-6 pt-3.5 border-t border-slate-800/60 flex items-center justify-between">
                     <span
-                      className="text-micro"
+                      className="text-micro font-medium group-hover:text-cyan-300 transition-colors"
                       style={{ color: 'var(--color-text-tertiary)', fontSize: '10px' }}
                     >
-                      EXPLORE DETAILS
+                      {ctaText}
                     </span>
                     <ArrowUpRight
                       size={13}
-                      className="text-slate-500 transition-all duration-200 group-hover:text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+                      className="text-slate-500 transition-all duration-200 group-hover:text-cyan-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                     />
                   </div>
                 </PointerCard>

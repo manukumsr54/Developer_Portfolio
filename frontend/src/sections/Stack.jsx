@@ -490,7 +490,7 @@ export default function Stack() {
                   >
                     <CheckCircle2 size={14} className="text-blue-400 shrink-0 mt-0.5" />
                     <span>
-                      Full project breakdown, interactive demos, and code repositories will be revealed in Phase 4.
+                      Full project architecture, live demos, and code repositories are explored in the Featured Projects section below.
                     </span>
                   </div>
                 </div>

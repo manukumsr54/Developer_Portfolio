@@ -1,5 +1,5 @@
-import { Mail } from 'lucide-react'
-import { socialLinks } from '../data/socialLinks'
+import { Mail, Phone } from 'lucide-react'
+import { socialLinks, LINKEDIN_URL } from '../data/socialLinks'
 import profileImage from '../assets/profile.jpg'
 
 /**
@@ -26,6 +26,7 @@ const iconMap = {
   Github: GitHubIcon,
   Linkedin: LinkedInIcon,
   Mail,
+  Phone,
 }
 
 /**
@@ -46,11 +47,17 @@ export default function Footer() {
         className="section flex flex-col md:flex-row items-center justify-between gap-6"
         style={{ paddingTop: '2rem', paddingBottom: '2rem' }}
       >
-        {/* Left: Identity Lockup with Portrait */}
+        {/* Left: Identity Lockup with Portrait and LinkedIn link */}
         <div className="flex flex-col items-center md:items-start">
-          <div className="flex items-center gap-2.5 mb-1">
+          <a
+            href={LINKEDIN_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Manu Kumar on LinkedIn"
+            className="flex items-center gap-2.5 mb-1 group cursor-pointer text-decoration-none"
+          >
             <div
-              className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 group transition-all duration-300 hover:border-cyan-400/50 hover:shadow-[0_0_12px_rgba(34,211,238,0.22)]"
+              className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 transition-all duration-300 group-hover:border-cyan-400/50 group-hover:shadow-[0_0_12px_rgba(34,211,238,0.22)]"
               style={{
                 border: '1px solid rgba(59, 130, 246, 0.25)',
                 boxShadow: '0 0 10px rgba(59, 130, 246, 0.12)',
@@ -63,6 +70,7 @@ export default function Footer() {
               />
             </div>
             <p
+              className="group-hover:text-cyan-300 transition-colors"
               style={{
                 fontSize: 'var(--text-sm)',
                 fontWeight: 'var(--weight-semibold)',
@@ -71,10 +79,17 @@ export default function Footer() {
             >
               Manu Kumar
             </p>
-          </div>
-          <p className="text-micro text-center md:text-left" style={{ fontSize: '11px' }}>
-            Let's build something meaningful.
-          </p>
+          </a>
+          <a
+            href={LINKEDIN_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="ABESEC Ghaziabad on LinkedIn"
+            className="text-micro text-center md:text-left transition-colors hover:text-cyan-400"
+            style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}
+          >
+            ABESEC Ghaziabad · Let's build something meaningful.
+          </a>
         </div>
 
         {/* Social links */}
@@ -85,7 +100,7 @@ export default function Footer() {
               <a
                 key={link.id}
                 href={link.url}
-                target={link.url.startsWith('mailto:') ? undefined : '_blank'}
+                target={link.url.startsWith('mailto:') || link.url.startsWith('tel:') ? undefined : '_blank'}
                 rel="noopener noreferrer"
                 aria-label={link.label}
                 className="transition-colors"

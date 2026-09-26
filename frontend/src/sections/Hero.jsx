@@ -52,53 +52,53 @@ export default function Hero() {
       // Step 1: Environment fades in
       tl.fromTo(environmentRef.current, { opacity: 0 }, { opacity: 1, duration: 1.0 })
 
-      // Step 2: Central glow expands
-      .fromTo(
-        glowRef.current,
-        { scale: 0.5, opacity: 0 },
-        { scale: 1, opacity: 1, duration: 1.2, ease: 'power2.out' },
-        '-=0.7'
-      )
+        // Step 2: Central glow expands
+        .fromTo(
+          glowRef.current,
+          { scale: 0.5, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 1.2, ease: 'power2.out' },
+          '-=0.7'
+        )
 
-      // Step 3: Portrait rises into position (clean finish with no lingering filters)
-      .fromTo(
-        portraitRef.current,
-        { y: 30, opacity: 0, scale: 0.92 },
-        { y: 0, opacity: 1, scale: 1, duration: 0.9, ease: 'power3.out', clearProps: 'filter' },
-        '-=0.6'
-      )
+        // Step 3: Portrait rises into position (clean finish with no lingering filters)
+        .fromTo(
+          portraitRef.current,
+          { y: 30, opacity: 0, scale: 0.92 },
+          { y: 0, opacity: 1, scale: 1, duration: 0.9, ease: 'power3.out', clearProps: 'filter' },
+          '-=0.6'
+        )
 
-      // Step 4: Heading reveals cleanly (blur strictly removed after entrance)
-      .fromTo(
-        headingRef.current,
-        { y: 25, opacity: 0, filter: 'blur(6px)' },
-        { y: 0, opacity: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out', clearProps: 'filter' },
-        '-=0.4'
-      )
+        // Step 4: Heading reveals cleanly (blur strictly removed after entrance)
+        .fromTo(
+          headingRef.current,
+          { y: 25, opacity: 0, filter: 'blur(6px)' },
+          { y: 0, opacity: 1, filter: 'blur(0px)', duration: 0.8, ease: 'power3.out', clearProps: 'filter' },
+          '-=0.4'
+        )
 
-      // Step 5: Subtitle appears
-      .fromTo(
-        subtitleRef.current,
-        { y: 15, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out' },
-        '-=0.3'
-      )
+        // Step 5: Subtitle appears
+        .fromTo(
+          subtitleRef.current,
+          { y: 15, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.7, ease: 'power3.out' },
+          '-=0.3'
+        )
 
-      // Step 6: CTAs become active
-      .fromTo(
-        ctaRef.current?.children || [],
-        { y: 12, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6, stagger: 0.12, ease: 'power3.out' },
-        '-=0.2'
-      )
+        // Step 6: CTAs become active
+        .fromTo(
+          ctaRef.current?.children || [],
+          { y: 12, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.6, stagger: 0.12, ease: 'power3.out' },
+          '-=0.2'
+        )
 
-      // Step 7: Scroll indicator settles
-      .fromTo(
-        scrollRef.current,
-        { opacity: 0, y: -10 },
-        { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' },
-        '-=0.1'
-      )
+        // Step 7: Scroll indicator settles
+        .fromTo(
+          scrollRef.current,
+          { opacity: 0, y: -10 },
+          { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' },
+          '-=0.1'
+        )
 
       // === Scroll-exit transition (only triggers as user scrolls down) ===
       gsap.to(portraitRef.current, {
@@ -284,6 +284,7 @@ export default function Hero() {
           <MagneticButton
             as="a"
             href="#work"
+            withMicroInteraction
             onClick={(e) => {
               e.preventDefault()
               document.querySelector('#work')?.scrollIntoView({ behavior: 'smooth' })
@@ -318,6 +319,7 @@ export default function Hero() {
           <MagneticButton
             as="a"
             href="#contact"
+            withMicroInteraction
             onClick={(e) => {
               e.preventDefault()
               document.querySelector('#contact')?.scrollIntoView({ behavior: 'smooth' })

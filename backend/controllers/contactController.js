@@ -1,11 +1,19 @@
-import { query } from '../db/index.js'
+import { query, initDb } from '../db/index.js'
+import { sendContactEmail } from '../services/emailService.js'
 
 // Simple in-memory fallback log in case DB is offline during local dev
 const fallbackLog = []
 
 /**
  * Validate and handle contact form submissions.
- * 
+ *
+ * Flow:
+ * 1. Honeypot anti-spam check
+ * 2. Sanitize and validate fields
+ * 3. Send email to portfolio owner (manukumsr54@gmail.com) via nodemailer
+ * 4. Persist to PostgreSQL (if database connected) or memory log
+ * 5. Return clean production-safe response
+ *
  * Payload:
  * {
  *   email: string (required),
@@ -25,7 +33,7 @@ export async function handleContact(req, res, next) {
       console.log('[Contact] Honeypot triggered; silently dropping bot submission.')
       return res.status(200).json({
         success: true,
-        message: 'Message received. Thanks — I\'ll get back to you.',
+        message: "Message received. Thanks — I'll get back to you.",
       })
     }
 
@@ -67,8 +75,28 @@ export async function handleContact(req, res, next) {
       })
     }
 
-    // 3. Database persistence (parameterized SQL query)
+    // 3. Dispatch Email to portfolio owner
+    let emailResult = { delivered: false }
     try {
+      emailResult = await sendContactEmail({
+        email: trimmedEmail,
+        phone: trimmedPhone,
+        subject: trimmedSubject,
+        message: trimmedMessage,
+        intent: trimmedIntent,
+      })
+    } catch (mailErr) {
+      // Server-side logging only; NEVER leak credentials or mail host errors to client
+      console.error('[Contact Mailer Error]:', mailErr.message)
+      return res.status(500).json({
+        error: 'Unable to deliver message right now. Please try again later or contact manukumsr54@gmail.com directly.',
+      })
+    }
+
+    // 4. Database persistence (parameterized SQL query, non-blocking)
+    let recordId = null
+    try {
+      await initDb()
       const insertSql = `
         INSERT INTO contact_messages (email, phone, subject, message, intent, status)
         VALUES ($1, $2, $3, $4, $5, 'unread')
@@ -76,18 +104,13 @@ export async function handleContact(req, res, next) {
       `
       const params = [trimmedEmail, trimmedPhone, trimmedSubject, trimmedMessage, trimmedIntent]
       const dbResult = await query(insertSql, params)
-      const inserted = dbResult.rows[0]
-
-      console.log(`[Contact] Message #${inserted.id} successfully recorded in PostgreSQL from ${trimmedEmail}`)
-
-      return res.status(201).json({
-        success: true,
-        message: 'Message received. Thanks — I\'ll get back to you.',
-        id: inserted.id,
-      })
+      if (dbResult?.rows?.[0]) {
+        recordId = dbResult.rows[0].id
+        console.log(`[Contact] Message #${recordId} successfully recorded in PostgreSQL from ${trimmedEmail}`)
+      }
     } catch (dbErr) {
-      // Server-side logging only; NEVER leak database error strings or credentials to the client
-      console.error('[Contact Database Error]:', dbErr.message)
+      // Non-fatal database notice; email has already been dispatched/simulated
+      console.warn('[Contact Database Notice]: Database write skipped (' + dbErr.message + ')')
 
       // Retain in local memory log so submission is never lost
       fallbackLog.push({
@@ -99,12 +122,13 @@ export async function handleContact(req, res, next) {
         receivedAt: new Date().toISOString(),
       })
       console.log('[Contact Fallback] Stored in local fallback log. Total entries:', fallbackLog.length)
-
-      // Friendly generic error as specified in Part 15
-      return res.status(503).json({
-        error: 'Unable to deliver message at this time. Please try again later or reach out directly.',
-      })
     }
+
+    return res.status(200).json({
+      success: true,
+      message: "Message received. Thanks — I'll get back to you.",
+      id: recordId || emailResult.messageId || null,
+    })
   } catch (err) {
     next(err)
   }

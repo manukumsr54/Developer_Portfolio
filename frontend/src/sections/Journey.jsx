@@ -451,26 +451,26 @@ export default function Journey() {
                 {/* ============================================================ */}
                 {isCurrentlyActive && (
                   <div
-                    className={`absolute z-50 pointer-events-auto transition-all duration-300 animate-fadeIn ${
+                    className={`z-50 pointer-events-auto transition-all duration-300 animate-fadeIn ${
                       isMobile
-                        ? 'left-1/2 -translate-x-1/2 top-full mt-4 w-[280px]'
+                        ? 'fixed inset-x-3 sm:inset-x-6 bottom-6 max-w-sm mx-auto'
                         : isRightSide
                         ? isBottomHalf
-                          ? 'right-full mr-4 bottom-0 w-[320px]'
-                          : 'right-full mr-4 top-0 w-[320px]'
+                          ? 'absolute right-full mr-4 bottom-0 w-[320px]'
+                          : 'absolute right-full mr-4 top-0 w-[320px]'
                         : isBottomHalf
-                        ? 'left-full ml-4 bottom-0 w-[320px]'
-                        : 'left-full ml-4 top-0 w-[320px]'
+                        ? 'absolute left-full ml-4 bottom-0 w-[320px]'
+                        : 'absolute left-full ml-4 top-0 w-[320px]'
                     }`}
                     style={{
-                      maxHeight: '85vh',
+                      maxHeight: isMobile ? '75vh' : '85vh',
                     }}
                     role="dialog"
                     aria-label={`${stage.keyword} stage details`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div
-                      className="p-5 sm:p-6 rounded-2xl relative shadow-2xl overflow-hidden"
+                      className="p-5 sm:p-6 rounded-2xl relative shadow-2xl overflow-y-auto max-h-[75vh]"
                       style={{
                         background: 'linear-gradient(165deg, rgba(13, 20, 36, 0.96) 0%, rgba(8, 12, 24, 0.98) 100%)',
                         backdropFilter: 'blur(24px)',

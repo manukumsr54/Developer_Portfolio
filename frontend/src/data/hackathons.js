@@ -25,6 +25,8 @@ export const hackathons = [
     technologies: ['React', 'TypeScript', 'Node.js', 'Express.js', 'PostgreSQL', 'AI/ML'],
     verified: true,
     highlight: true,
+    liveUrl: 'https://raksha-2b9n.onrender.com',
+    githubUrl: 'https://github.com/manukumsr54/SIH_2026_Project',
   },
   {
     id: 'eit-faridabad-semifinalist',
@@ -43,6 +45,8 @@ export const hackathons = [
     technologies: [],
     verified: true,
     highlight: false,
+    liveUrl: null,
+    githubUrl: null,
   },
   {
     id: 'ab-talks-consistency-tracker',
@@ -61,5 +65,7 @@ export const hackathons = [
     technologies: ['React', 'JavaScript', 'CSS'],
     verified: true,
     highlight: false,
+    liveUrl: 'https://ab-talks-bgw0ghkbu-innovation-ninjas1.vercel.app/',
+    githubUrl: 'https://github.com/manukumsr54/AB_Talks',
   },
 ]

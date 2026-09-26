@@ -9,6 +9,7 @@ import {
   Sparkles,
   ShieldCheck,
   Mail,
+  Phone,
   RefreshCw,
 } from 'lucide-react'
 
@@ -17,7 +18,8 @@ import AtmosphericHaze from '../components/AtmosphericHaze'
 import PointerCard from '../components/PointerCard'
 import MagneticButton from '../components/MagneticButton'
 import { aboutIdentity } from '../data/about'
-import { socialLinks } from '../data/socialLinks'
+import { socialLinks, LINKEDIN_URL } from '../data/socialLinks'
+import { CONTACT_ENDPOINT } from '../config/api'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -45,6 +47,7 @@ const SOCIAL_ICONS = {
   Github: GitHubIcon,
   Linkedin: LinkedInIcon,
   Mail: Mail,
+  Phone: Phone,
 }
 
 const INTENT_OPTIONS = [
@@ -222,7 +225,7 @@ export default function Contact() {
     setServerFeedback('')
 
     try {
-      const response = await fetch('/api/contact', {
+      const response = await fetch(CONTACT_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -358,13 +361,30 @@ export default function Contact() {
                 </span>
               </div>
 
-              <h3 className="text-base sm:text-lg font-bold text-white mb-1 tracking-tight">
-                {aboutIdentity.name}
-              </h3>
+              <a
+                href={LINKEDIN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${aboutIdentity.name} on LinkedIn`}
+                className="group/name flex items-center justify-between mb-1"
+              >
+                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight group-hover/name:text-cyan-300 transition-colors">
+                  {aboutIdentity.name}
+                </h3>
+                <span className="text-[11px] font-mono text-cyan-400 opacity-0 group-hover/name:opacity-100 transition-opacity">
+                  LinkedIn ↗
+                </span>
+              </a>
 
-              <p className="text-xs sm:text-sm text-slate-400 mb-3">
+              <a
+                href={LINKEDIN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${aboutIdentity.education} on LinkedIn`}
+                className="block text-xs sm:text-sm text-slate-400 mb-3 hover:text-slate-200 transition-colors"
+              >
                 {aboutIdentity.education}
-              </p>
+              </a>
 
               {/* Natural Student Coordinator badge */}
               <div
@@ -540,9 +560,8 @@ export default function Contact() {
                               background: isSelected
                                 ? 'rgba(56, 189, 248, 0.16)'
                                 : 'rgba(255, 255, 255, 0.03)',
-                              border: `1px solid ${
-                                isSelected ? 'rgba(56, 189, 248, 0.5)' : 'var(--color-border-subtle)'
-                              }`,
+                              border: `1px solid ${isSelected ? 'rgba(56, 189, 248, 0.5)' : 'var(--color-border-subtle)'
+                                }`,
                               color: isSelected
                                 ? 'var(--color-accent-cyan)'
                                 : 'var(--color-text-secondary)',

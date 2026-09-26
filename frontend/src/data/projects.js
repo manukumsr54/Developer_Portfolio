@@ -15,6 +15,10 @@
  * - No fake metrics, awards, fabricated URLs, or unverified skills.
  */
 
+import rakshaImage from '../assets/projects/raksha.jpg'
+import intervistaImage from '../assets/projects/intervista-ai.jpg'
+import mannImage from '../assets/projects/mann.jpg'
+
 export const projects = [
   // ==========================================
   // 3 PRIMARY FEATURED PROJECTS
@@ -32,10 +36,10 @@ export const projects = [
     featured: true,
     accent: '#38bdf8', // Cyan/Blue
     glow: 'rgba(56, 189, 248, 0.2)',
-    // User can drop image path here directly:
-    image: null, // e.g. '/assets/projects/raksha.png'
-    liveUrl: '',
-    githubUrl: '',
+    image: rakshaImage,
+    imageAlt: 'RAKSHA — Satellite Disaster Intelligence System Dashboard',
+    liveUrl: 'https://raksha-2b9n.onrender.com',
+    githubUrl: 'https://github.com/manukumsr54/SIH_2026_Project',
   },
   {
     id: 'intervista-ai',
@@ -50,9 +54,10 @@ export const projects = [
     featured: true,
     accent: '#818cf8', // Indigo/Blue
     glow: 'rgba(129, 140, 248, 0.2)',
-    image: null, // e.g. '/assets/projects/intervista.png'
-    liveUrl: '',
-    githubUrl: '',
+    image: intervistaImage,
+    imageAlt: 'INTERVISTA AI — Real-Time Voice and Technical Assessment Platform Interface',
+    liveUrl: null,
+    githubUrl: 'https://github.com/zaid786-collab/Intervista-AI',
   },
   {
     id: 'mann',
@@ -67,9 +72,10 @@ export const projects = [
     featured: true,
     accent: '#34d399', // Emerald/Teal
     glow: 'rgba(52, 211, 153, 0.2)',
-    image: null, // e.g. '/assets/projects/mann.png'
-    liveUrl: '',
-    githubUrl: '',
+    image: mannImage,
+    imageAlt: 'MANN — Semester-Scale Systems Architecture & Knowledge Node Interface',
+    liveUrl: null,
+    githubUrl: null,
   },
 
   // ==========================================
@@ -89,8 +95,8 @@ export const projects = [
     accent: '#eab308',
     glow: 'rgba(234, 179, 8, 0.18)',
     image: null,
-    liveUrl: '',
-    githubUrl: '',
+    liveUrl: 'https://tower-of-hanoi-one-self.vercel.app/',
+    githubUrl: 'https://github.com/manukumsr54',
   },
   {
     id: 'js-game-placeholder',
@@ -106,8 +112,8 @@ export const projects = [
     accent: '#f59e0b',
     glow: 'rgba(245, 158, 11, 0.18)',
     image: null,
-    liveUrl: '',
-    githubUrl: '',
+    liveUrl: null,
+    githubUrl: null,
   },
   {
     id: 'spotify-clone',
@@ -123,8 +129,8 @@ export const projects = [
     accent: '#22c55e',
     glow: 'rgba(34, 197, 94, 0.18)',
     image: null,
-    liveUrl: '',
-    githubUrl: '',
+    liveUrl: null,
+    githubUrl: 'https://github.com/manukumsr54/Spotify-Clone',
   },
   {
     id: 'twitter-clone',
@@ -140,8 +146,8 @@ export const projects = [
     accent: '#38bdf8',
     glow: 'rgba(56, 189, 248, 0.18)',
     image: null,
-    liveUrl: '',
-    githubUrl: '',
+    liveUrl: null,
+    githubUrl: 'https://github.com/manukumsr54/twitter-clone',
   },
 
   // Supporting relationship entry for portfolio itself
@@ -158,8 +164,8 @@ export const projects = [
     accent: '#60a5fa',
     glow: 'rgba(96, 165, 250, 0.2)',
     image: null,
-    liveUrl: '',
-    githubUrl: '',
+    liveUrl: null,
+    githubUrl: 'https://github.com/manukumsr54',
   },
 ]
 
