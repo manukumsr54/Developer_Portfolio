@@ -1,4 +1,4 @@
-# Manu Kumar — Developer Portfolio
+# Manu Kumar — Developer Portfolio-
 
 > A cinematic and interactive developer portfolio designed to showcase my technical journey, projects, hackathon experiences, skills, and the systems I am building.
 
