@@ -2,15 +2,14 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import {
-  Send,
   Loader2,
-  CheckCircle2,
   AlertCircle,
   Sparkles,
   ShieldCheck,
   Mail,
   Phone,
   RefreshCw,
+  ExternalLink,
 } from 'lucide-react'
 
 import SectionLabel from '../components/SectionLabel'
@@ -23,6 +22,11 @@ import { CONTACT_ENDPOINT } from '../config/api'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 
 gsap.registerPlugin(ScrollTrigger)
+
+/**
+ * WhatsApp destination configuration
+ */
+const WHATSAPP_DESTINATION_NUMBER = '919389648140'
 
 /**
  * Inline brand SVG icons matching Footer.jsx
@@ -43,6 +47,21 @@ function LinkedInIcon({ size = 18 }) {
   )
 }
 
+function WhatsAppIcon({ size = 18, className = '' }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.82 11.82 0 00-3.48-8.413z" />
+    </svg>
+  )
+}
+
 const SOCIAL_ICONS = {
   Github: GitHubIcon,
   Linkedin: LinkedInIcon,
@@ -58,8 +77,34 @@ const INTENT_OPTIONS = [
 ]
 
 /**
+ * Builds the structured, human-readable WhatsApp enquiry message.
+ */
+function buildWhatsAppMessage({ name, email, phone, subject, message, intent }) {
+  const subjectDisplay = intent ? `${subject.trim()} [${intent}]` : subject.trim()
+
+  return (
+    `Hello Manu!
+
+You have received a new portfolio enquiry.
+
+Name: ${name.trim()}
+
+Email: ${email.trim()}
+
+Contact Number: ${phone.trim()}
+
+Subject: ${subjectDisplay}
+
+Message:
+${message.trim()}
+
+Sent through your Developer Portfolio.`
+  )
+}
+
+/**
  * Phase 6: Contact Section — "Have something worth building? Let's work together."
- * Fully functional database-backed contact interface connected to Express & PostgreSQL.
+ * WhatsApp Click-to-Chat integration with non-blocking database persistence.
  */
 export default function Contact() {
   const sectionRef = useRef(null)
@@ -70,6 +115,7 @@ export default function Contact() {
 
   // Form states
   const [formData, setFormData] = useState({
+    name: '',
     email: '',
     phone: '',
     subject: '',
@@ -78,9 +124,13 @@ export default function Contact() {
   })
   const [selectedIntent, setSelectedIntent] = useState(null)
   const [errors, setErrors] = useState({})
-  const [status, setStatus] = useState('idle') // 'idle' | 'submitting' | 'success' | 'error'
-  const [serverFeedback, setServerFeedback] = useState('')
-  const [submittedId, setSubmittedId] = useState(null)
+  const [status, setStatus] = useState('idle') // 'idle' | 'submitting' | 'ready'
+  const [whatsappUrls, setWhatsappUrls] = useState({ primary: '', web: '' })
+  const [popupBlocked, setPopupBlocked] = useState(false)
+
+  const isMobile =
+    typeof navigator !== 'undefined' &&
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
   // Scroll animations
   useEffect(() => {
@@ -173,10 +223,20 @@ export default function Contact() {
   // Frontend validation
   const validateForm = () => {
     const newErrors = {}
+    const trimmedName = formData.name.trim()
     const trimmedEmail = formData.email.trim()
     const trimmedPhone = formData.phone.trim()
     const trimmedSubject = formData.subject.trim()
     const trimmedMessage = formData.message.trim()
+
+    // Name
+    if (!trimmedName) {
+      newErrors.name = 'Name is required.'
+    } else if (trimmedName.length < 2) {
+      newErrors.name = 'Name must be at least 2 characters.'
+    } else if (trimmedName.length > 100) {
+      newErrors.name = 'Name must be under 100 characters.'
+    }
 
     // Email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -186,7 +246,7 @@ export default function Contact() {
       newErrors.email = 'Please provide a valid email (e.g. name@domain.com).'
     }
 
-    // Phone (7 to 16 digits, standard characters allowed)
+    // Phone (7 to 16 digits, standard international characters allowed)
     const phoneCharsRegex = /^[+]?[\d\s()./-]{7,25}$/
     const phoneDigits = trimmedPhone.replace(/\D/g, '')
     if (!trimmedPhone) {
@@ -200,6 +260,8 @@ export default function Contact() {
       newErrors.subject = 'Subject is required.'
     } else if (trimmedSubject.length < 2) {
       newErrors.subject = 'Subject must be at least 2 characters.'
+    } else if (trimmedSubject.length > 300) {
+      newErrors.subject = 'Subject must be under 300 characters.'
     }
 
     // Detailed query
@@ -207,6 +269,8 @@ export default function Contact() {
       newErrors.message = 'Detailed query is required.'
     } else if (trimmedMessage.length < 10) {
       newErrors.message = 'Detailed query must be at least 10 characters so I can understand your requirements.'
+    } else if (trimmedMessage.length > 5000) {
+      newErrors.message = 'Detailed query must be under 5,000 characters.'
     }
 
     setErrors(newErrors)
@@ -214,711 +278,809 @@ export default function Contact() {
   }
 
   // Submission handler
-  const handleSubmit = async (e) => {
-    e.preventDefault()
+    const handleSubmit = (e) => {
+      e.preventDefault()
 
-    if (!validateForm()) {
-      return
-    }
+      if (!validateForm()) {
+        return
+      }
 
-    setStatus('submitting')
-    setServerFeedback('')
+      // Silent drop if bot fills hidden honeypot
+      if (formData.website) {
+        return
+      }
 
-    try {
-      const response = await fetch(CONTACT_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          phone: formData.phone.trim(),
-          subject: formData.subject.trim(),
-          message: formData.message.trim(),
-          intent: selectedIntent || undefined,
-          website: formData.website || undefined, // honeypot
-        }),
+      setStatus('submitting')
+
+      // Construct formatted message and URL-encoded destinations
+      const rawMessage = buildWhatsAppMessage({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+        intent: selectedIntent,
       })
 
-      const data = await response.json()
+      const encodedMessage = encodeURIComponent(rawMessage)
+      const primaryUrl = `https://wa.me/${WHATSAPP_DESTINATION_NUMBER}?text=${encodedMessage}`
+      const webUrl = `https://web.whatsapp.com/send?phone=${WHATSAPP_DESTINATION_NUMBER}&text=${encodedMessage}`
 
-      if (response.ok && data.success) {
-        setStatus('success')
-        setSubmittedId(data.id || null)
-        setServerFeedback(data.message || "Message received. Thanks — I'll get back to you.")
-        setFormData({
-          email: '',
-          phone: '',
-          subject: '',
-          message: '',
-          website: '',
-        })
-        setSelectedIntent(null)
-        setErrors({})
-      } else {
-        setStatus('error')
-        setServerFeedback(data.error || 'Something went wrong. Please try again.')
+      setWhatsappUrls({ primary: primaryUrl, web: webUrl })
+
+      // Open WhatsApp Click-to-Chat immediately within user gesture context
+      let opened = null
+      try {
+          opened = window.open(primaryUrl, '_blank', 'noopener,noreferrer')
+        } catch (err) {
+          console.warn('[WhatsApp] Automatic window opening interrupted:', err)
+          opened = null
+        }
+
+        // Non-blocking database archive in background (does not gate WhatsApp workflow)
+        try {
+          fetch(CONTACT_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              phone: formData.phone.trim(),
+              subject: formData.subject.trim(),
+              message: formData.message.trim(),
+              intent: selectedIntent || undefined,
+            }),
+          }).catch((fetchErr) => {
+            console.warn('[Contact Persistence Notice] Non-blocking DB write notice:', fetchErr)
+          })
+        } catch {
+          // Non-blocking
+        }
+
+          // Brief smooth transition state before displaying confirmation
+          setTimeout(() => {
+            setStatus('ready')
+            if (!opened || opened.closed || typeof opened.closed === 'undefined') {
+              setPopupBlocked(true)
+            } else {
+              setPopupBlocked(false)
+            }
+        }, 450)
       }
-    } catch {
-      setStatus('error')
-      setServerFeedback('Network connection error. Please verify your connection or try again.')
-    }
-  }
 
-  // Reset after success to send another message
+  // Reset to send another message or edit current message
   const handleReset = () => {
-    setStatus('idle')
-    setServerFeedback('')
-    setSubmittedId(null)
-  }
+        setStatus('idle')
+        setPopupBlocked(false)
+        setWhatsappUrls({ primary: '', web: '' })
+      }
 
-  return (
-    <section
-      ref={sectionRef}
-      id="contact"
-      className="section-full relative py-28 md:py-36 overflow-hidden scroll-mt-16 md:scroll-mt-20"
-      style={{
-        background: 'var(--color-bg-secondary)',
-        borderTop: '1px solid var(--color-border-subtle)',
-      }}
-    >
-      {/* Signature Atmospheric Haze — Visual closure returning from Hero */}
-      <div
-        ref={hazeContainerRef}
-        className="absolute inset-0 pointer-events-none overflow-hidden"
-        style={{ zIndex: 0 }}
-      >
-        <AtmosphericHaze
-          intensity={0.68}
-          speed={1.18}
-          layers={3}
-          variant="connect"
-        />
-      </div>
-
-      {/* Subtle background technical grid markings */}
-      <div
-        className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{
-          backgroundImage:
-            'radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-        }}
-        aria-hidden="true"
-      />
-
-      <div className="section relative z-10">
-        <SectionLabel number="06" title="CONNECT" />
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start mt-8">
-          {/* ============================================================ */}
-          {/* LEFT COLUMN: Editorial Culmination & Supporting Identity      */}
-          {/* ============================================================ */}
-          <div ref={leftColRef} className="lg:col-span-5 flex flex-col">
-            {/* Supporting Subheading */}
-            <span
-              className="font-mono text-xs sm:text-sm tracking-widest text-cyan-400 uppercase font-semibold mb-2"
-            >
-              Have something worth building?
-            </span>
-
-            {/* Major Visual Statement */}
-            <h2
-              className="text-white font-bold tracking-tight leading-tight mb-4"
-              style={{
-                fontSize: 'clamp(2.25rem, 3.8vw, 3.25rem)',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Let's work together.
-            </h2>
-
-            {/* Editorial Narrative */}
-            <p
-              className="text-base md:text-lg leading-relaxed mb-8"
-              style={{ color: 'var(--color-text-secondary)', maxWidth: '520px' }}
-            >
-              Whether it's a project, an idea, an experiment, or a technical problem worth solving,
-              start the conversation.
-            </p>
-
-            {/* Verified Identity & Student Coordinator Role Integration */}
-            <div
-              className="p-5 sm:p-6 rounded-2xl mb-8 transition-all"
-              style={{
-                background: 'rgba(13, 17, 23, 0.65)',
-                border: '1px solid var(--color-border-subtle)',
-                backdropFilter: 'blur(12px)',
-              }}
-            >
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
-                <span
-                  className="font-mono text-[10px] tracking-wider uppercase font-semibold"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
-                  IDENTITY & VERIFIED AFFILIATION
-                </span>
-              </div>
-
-              <a
-                href={LINKEDIN_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${aboutIdentity.name} on LinkedIn`}
-                className="group/name flex items-center justify-between mb-1"
-              >
-                <h3 className="text-base sm:text-lg font-bold text-white tracking-tight group-hover/name:text-cyan-300 transition-colors">
-                  {aboutIdentity.name}
-                </h3>
-                <span className="text-[11px] font-mono text-cyan-400 opacity-0 group-hover/name:opacity-100 transition-opacity">
-                  LinkedIn ↗
-                </span>
-              </a>
-
-              <a
-                href={LINKEDIN_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${aboutIdentity.education} on LinkedIn`}
-                className="block text-xs sm:text-sm text-slate-400 mb-3 hover:text-slate-200 transition-colors"
-              >
-                {aboutIdentity.education}
-              </a>
-
-              {/* Natural Student Coordinator badge */}
-              <div
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium"
-                style={{
-                  background: 'rgba(56, 189, 248, 0.08)',
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                  color: 'var(--color-accent-cyan)',
-                }}
-              >
-                <ShieldCheck size={14} className="shrink-0 text-cyan-400" />
-                <span>{aboutIdentity.role}</span>
-              </div>
-            </div>
-
-            {/* Supporting Direct Channels */}
-            <div className="flex flex-col gap-3.5 mb-8">
-              <span
-                className="font-mono text-[10px] tracking-wider uppercase font-semibold"
-                style={{ color: 'var(--color-text-tertiary)' }}
-              >
-                DIRECT PROFESSIONAL CHANNELS
-              </span>
-
-              <div className="flex flex-wrap items-center gap-3">
-                {socialLinks.map((link) => {
-                  const Icon = SOCIAL_ICONS[link.icon] || Mail
-                  return (
-                    <a
-                      key={link.id}
-                      href={link.url}
-                      target={link.url.startsWith('mailto:') ? undefined : '_blank'}
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono transition-all duration-200"
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid var(--color-border-subtle)',
-                        color: 'var(--color-text-secondary)',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)'
-                        e.currentTarget.style.color = 'var(--color-text-primary)'
-                        e.currentTarget.style.background = 'rgba(56, 189, 248, 0.06)'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'var(--color-border-subtle)'
-                        e.currentTarget.style.color = 'var(--color-text-secondary)'
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'
-                      }}
-                      data-cursor="grow"
-                    >
-                      <Icon size={14} />
-                      <span>{link.label}</span>
-                    </a>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Architecture / Integrity Note */}
-            <div className="flex items-center gap-2.5 text-xs font-mono text-slate-500">
-              <Sparkles size={13} className="text-cyan-400/80 shrink-0" />
-              <span>Direct PostgreSQL inbox storage · Parameterized security</span>
-            </div>
+      return (
+        <section
+          ref={sectionRef}
+          id="contact"
+          className="section-full relative py-28 md:py-36 overflow-hidden scroll-mt-16 md:scroll-mt-20"
+          style={{
+            background: 'var(--color-bg-secondary)',
+            borderTop: '1px solid var(--color-border-subtle)',
+          }}
+        >
+          {/* Signature Atmospheric Haze — Visual closure returning from Hero */}
+          <div
+            ref={hazeContainerRef}
+            className="absolute inset-0 pointer-events-none overflow-hidden"
+            style={{ zIndex: 0 }}
+          >
+            <AtmosphericHaze
+              intensity={0.68}
+              speed={1.18}
+              layers={3}
+              variant="connect"
+            />
           </div>
 
-          {/* ============================================================ */}
-          {/* RIGHT COLUMN: Interactive Form Interface                      */}
-          {/* ============================================================ */}
-          <div ref={formCardRef} className="lg:col-span-7">
-            <PointerCard
-              className="p-6 sm:p-8 md:p-10"
-              glowColor="rgba(56, 189, 248, 0.12)"
-              borderColor="rgba(56, 189, 248, 0.22)"
-              tabIndex={-1}
-            >
-              {status === 'success' ? (
-                /* ============================================================ */
-                /* SUCCESS CONFIRMATION STATE                                   */
-                /* ============================================================ */
-                <div
-                  className="py-10 px-4 sm:px-6 flex flex-col items-center text-center animate-fadeIn"
-                  role="status"
-                  aria-live="polite"
+          {/* Subtle background technical grid markings */}
+          <div
+            className="absolute inset-0 opacity-10 pointer-events-none"
+            style={{
+              backgroundImage:
+                'radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.1) 1px, transparent 1px)',
+              backgroundSize: '40px 40px',
+            }}
+            aria-hidden="true"
+          />
+
+          <div className="section relative z-10">
+            <SectionLabel number="06" title="CONNECT" />
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start mt-8">
+              {/* ============================================================ */}
+              {/* LEFT COLUMN: Editorial Culmination & Supporting Identity      */}
+              {/* ============================================================ */}
+              <div ref={leftColRef} className="lg:col-span-5 flex flex-col">
+                {/* Supporting Subheading */}
+                <span
+                  className="font-mono text-xs sm:text-sm tracking-widest text-cyan-400 uppercase font-semibold mb-2"
                 >
-                  <div
-                    className="w-16 h-16 rounded-full flex items-center justify-center mb-6"
-                    style={{
-                      background: 'rgba(52, 211, 153, 0.12)',
-                      border: '1px solid rgba(52, 211, 153, 0.35)',
-                      boxShadow: '0 0 24px rgba(52, 211, 153, 0.25)',
-                    }}
-                  >
-                    <CheckCircle2 size={32} className="text-emerald-400" />
-                  </div>
+                  Have something worth building?
+                </span>
 
-                  <h3
-                    className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight"
-                    style={{ letterSpacing: '-0.01em' }}
-                  >
-                    Message received.
-                  </h3>
+                {/* Major Visual Statement */}
+                <h2
+                  className="text-white font-bold tracking-tight leading-tight mb-4"
+                  style={{
+                    fontSize: 'clamp(2.25rem, 3.8vw, 3.25rem)',
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  Let's work together.
+                </h2>
 
-                  <p
-                    className="text-base sm:text-lg mb-4 font-medium"
-                    style={{ color: 'var(--color-accent-cyan)' }}
-                  >
-                    Thanks — I'll get back to you.
-                  </p>
+                {/* Editorial Narrative */}
+                <p
+                  className="text-base md:text-lg leading-relaxed mb-8"
+                  style={{ color: 'var(--color-text-secondary)', maxWidth: '520px' }}
+                >
+                  Whether it's a project, an idea, an experiment, or a technical problem worth solving,
+                  start the conversation.
+                </p>
 
-                  <p
-                    className="text-xs sm:text-sm max-w-md leading-relaxed mb-6"
-                    style={{ color: 'var(--color-text-secondary)' }}
-                  >
-                    Your query has been recorded into the portfolio's database. I typically review
-                    new project and collaboration inquiries within 24–48 hours.
-                  </p>
-
-                  {submittedId && (
-                    <div
-                      className="px-3.5 py-1.5 rounded-lg font-mono text-[11px] mb-8"
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.04)',
-                        border: '1px solid var(--color-border-subtle)',
-                        color: 'var(--color-text-tertiary)',
-                      }}
-                    >
-                      RECORD ID: #{submittedId} · STATUS: UNREAD
-                    </div>
-                  )}
-
-                  <MagneticButton
-                    as="button"
-                    type="button"
-                    onClick={handleReset}
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer"
-                    style={{
-                      background: 'rgba(56, 189, 248, 0.1)',
-                      border: '1px solid rgba(56, 189, 248, 0.35)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  >
-                    <RefreshCw size={14} className="text-cyan-400" />
-                    <span>SEND ANOTHER MESSAGE</span>
-                  </MagneticButton>
-                </div>
-              ) : (
-                /* ============================================================ */
-                /* ACTIVE CONTACT FORM                                          */
-                /* ============================================================ */
-                <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
-                  {/* Top Bar: Optional Intent Selector Chips */}
-                  <div className="flex flex-col gap-2.5 pb-2 border-b border-slate-800/80">
+                {/* Verified Identity & Student Coordinator Role Integration */}
+                <div
+                  className="p-5 sm:p-6 rounded-2xl mb-8 transition-all"
+                  style={{
+                    background: 'rgba(13, 17, 23, 0.65)',
+                    border: '1px solid var(--color-border-subtle)',
+                    backdropFilter: 'blur(12px)',
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
                     <span
-                      className="font-mono text-[11px] tracking-wider uppercase font-semibold flex items-center justify-between"
+                      className="font-mono text-[10px] tracking-wider uppercase font-semibold"
                       style={{ color: 'var(--color-text-tertiary)' }}
                     >
-                      <span>WHAT ARE YOU REACHING OUT ABOUT?</span>
-                      <span className="text-[10px] text-slate-500 font-normal">OPTIONAL</span>
+                      IDENTITY & VERIFIED AFFILIATION
                     </span>
-
-                    <div className="flex flex-wrap gap-2 pt-1" role="group" aria-label="Inquiry Intent">
-                      {INTENT_OPTIONS.map((intent) => {
-                        const isSelected = selectedIntent === intent.id
-                        return (
-                          <button
-                            key={intent.id}
-                            type="button"
-                            onClick={() => handleIntentToggle(intent.id)}
-                            aria-pressed={isSelected}
-                            className="px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all duration-200 cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
-                            style={{
-                              background: isSelected
-                                ? 'rgba(56, 189, 248, 0.16)'
-                                : 'rgba(255, 255, 255, 0.03)',
-                              border: `1px solid ${isSelected ? 'rgba(56, 189, 248, 0.5)' : 'var(--color-border-subtle)'
-                                }`,
-                              color: isSelected
-                                ? 'var(--color-accent-cyan)'
-                                : 'var(--color-text-secondary)',
-                              boxShadow: isSelected
-                                ? '0 0 14px rgba(56, 189, 248, 0.2)'
-                                : 'none',
-                            }}
-                            title={intent.hint}
-                            data-cursor="grow"
-                          >
-                            {intent.label}
-                          </button>
-                        )
-                      })}
-                    </div>
                   </div>
 
-                  {/* Honeypot field (anti-spam, invisible to real visitors) */}
-                  <div style={{ display: 'none' }} aria-hidden="true">
-                    <label htmlFor="contact-website">Website</label>
-                    <input
-                      id="contact-website"
-                      type="text"
-                      name="website"
-                      value={formData.website}
-                      onChange={handleChange}
-                      tabIndex={-1}
-                      autoComplete="off"
-                    />
+                  <a
+                    href={LINKEDIN_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${aboutIdentity.name} on LinkedIn`}
+                    className="group/name flex items-center justify-between mb-1"
+                  >
+                    <h3 className="text-base sm:text-lg font-bold text-white tracking-tight group-hover/name:text-cyan-300 transition-colors">
+                      {aboutIdentity.name}
+                    </h3>
+                    <span className="text-[11px] font-mono text-cyan-400 opacity-0 group-hover/name:opacity-100 transition-opacity">
+                      LinkedIn ↗
+                    </span>
+                  </a>
+
+                  <a
+                    href={LINKEDIN_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${aboutIdentity.education} on LinkedIn`}
+                    className="block text-xs sm:text-sm text-slate-400 mb-3 hover:text-slate-200 transition-colors"
+                  >
+                    {aboutIdentity.education}
+                  </a>
+
+                  {/* Natural Student Coordinator badge */}
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium"
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.08)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: 'var(--color-accent-cyan)',
+                    }}
+                  >
+                    <ShieldCheck size={14} className="shrink-0 text-cyan-400" />
+                    <span>{aboutIdentity.role}</span>
                   </div>
+                </div>
 
-                  {/* FIELD 1: EMAIL */}
-                  <div className="flex flex-col">
-                    <label
-                      htmlFor="contact-email"
-                      className="font-mono text-xs tracking-wider font-semibold uppercase mb-2 flex items-center justify-between"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
-                      <span>
-                        EMAIL <span className="text-cyan-400">*</span>
-                      </span>
-                      {errors.email && (
-                        <span className="text-[11px] text-rose-400 normal-case font-sans">
-                          Invalid address
-                        </span>
-                      )}
-                    </label>
+                {/* Supporting Direct Channels */}
+                <div className="flex flex-col gap-3.5 mb-8">
+                  <span
+                    className="font-mono text-[10px] tracking-wider uppercase font-semibold"
+                    style={{ color: 'var(--color-text-tertiary)' }}
+                  >
+                    DIRECT PROFESSIONAL CHANNELS
+                  </span>
 
-                    <input
-                      id="contact-email"
-                      name="email"
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="your.email@domain.com"
-                      autoComplete="email"
-                      aria-required="true"
-                      aria-invalid={!!errors.email}
-                      aria-describedby={errors.email ? 'contact-email-error' : undefined}
-                      className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none"
-                      style={{
-                        borderColor: errors.email
-                          ? 'rgba(244, 63, 94, 0.8)'
-                          : 'var(--color-border-subtle)',
-                        boxShadow: errors.email
-                          ? '0 0 12px rgba(244, 63, 94, 0.15)'
-                          : 'none',
-                      }}
-                      onFocus={(e) => {
-                        if (!errors.email) {
-                          e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
-                          e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
-                        }
-                      }}
-                      onBlur={(e) => {
-                        if (!errors.email) {
-                          e.target.style.borderColor = 'var(--color-border-subtle)'
-                          e.target.style.boxShadow = 'none'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
-                        }
-                      }}
-                    />
+                  <div className="flex flex-wrap items-center gap-3">
+                    {socialLinks.map((link) => {
+                      const Icon = SOCIAL_ICONS[link.icon] || Mail
+                      return (
+                        <a
+                          key={link.id}
+                          href={link.url}
+                          target={link.url.startsWith('mailto:') ? undefined : '_blank'}
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono transition-all duration-200"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid var(--color-border-subtle)',
+                            color: 'var(--color-text-secondary)',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)'
+                            e.currentTarget.style.color = 'var(--color-text-primary)'
+                            e.currentTarget.style.background = 'rgba(56, 189, 248, 0.06)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--color-border-subtle)'
+                            e.currentTarget.style.color = 'var(--color-text-secondary)'
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)'
+                          }}
+                          data-cursor="grow"
+                        >
+                          <Icon size={14} />
+                          <span>{link.label}</span>
+                        </a>
+                      )
+                    })}
+                  </div>
+                </div>
 
-                    {errors.email && (
+                {/* Architecture / Integrity Note */}
+                <div className="flex items-center gap-2.5 text-xs font-mono text-slate-500">
+                  <Sparkles size={13} className="text-cyan-400/80 shrink-0" />
+                  <span>Direct WhatsApp Click-to-Chat routing · Secure instant enquiry</span>
+                </div>
+              </div>
+
+              {/* ============================================================ */}
+              {/* RIGHT COLUMN: Interactive Form Interface                      */}
+              {/* ============================================================ */}
+              <div ref={formCardRef} className="lg:col-span-7">
+                <PointerCard
+                  className="p-6 sm:p-8 md:p-10"
+                  glowColor="rgba(56, 189, 248, 0.12)"
+                  borderColor="rgba(56, 189, 248, 0.22)"
+                  tabIndex={-1}
+                >
+                    { status === 'ready' ? (
+                      /* ============================================================ */
+                      /* WHATSAPP CONFIRMATION & FALLBACK STATE                        */
+                      /* ============================================================ */
                       <div
-                        id="contact-email-error"
-                        role="alert"
-                        className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
+                        className="py-10 px-4 sm:px-6 flex flex-col items-center text-center animate-fadeIn"
+                        role="status"
+                        aria-live="polite"
                       >
-                        <AlertCircle size={13} className="shrink-0" />
-                        <span>{errors.email}</span>
-                      </div>
-                    )}
-                  </div>
+                        <div
+                          className="w-16 h-16 rounded-full flex items-center justify-center mb-6"
+                          style={{
+                            background: 'rgba(37, 211, 102, 0.12)',
+                            border: '1px solid rgba(37, 211, 102, 0.35)',
+                            boxShadow: '0 0 24px rgba(37, 211, 102, 0.25)',
+                          }}
+                        >
+                          <WhatsAppIcon size={32} className="text-[#25D366]" />
+                        </div>
 
-                  {/* FIELD 2: CONTACT NUMBER */}
-                  <div className="flex flex-col">
-                    <label
-                      htmlFor="contact-phone"
-                      className="font-mono text-xs tracking-wider font-semibold uppercase mb-2 flex items-center justify-between"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
-                      <span>
-                        CONTACT NUMBER <span className="text-cyan-400">*</span>
-                      </span>
-                      {errors.phone && (
-                        <span className="text-[11px] text-rose-400 normal-case font-sans">
-                          Phone required
-                        </span>
-                      )}
-                    </label>
+                        <h3
+                          className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight"
+                          style={{ letterSpacing: '-0.01em' }}
+                        >
+                          WhatsApp is ready with your message.
+                        </h3>
 
-                    <input
-                      id="contact-phone"
-                      name="phone"
-                      type="tel"
-                      required
-                      value={formData.phone}
-                      onChange={handleChange}
-                      placeholder="+91 98765 43210"
-                      autoComplete="tel"
-                      aria-required="true"
-                      aria-invalid={!!errors.phone}
-                      aria-describedby={errors.phone ? 'contact-phone-error' : undefined}
-                      className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none"
+                        <p
+                          className="text-base sm:text-lg mb-4 font-medium text-emerald-400"
+                        >
+                          Press Send to complete your enquiry.
+                        </p>
+
+                        <p
+                          className="text-xs sm:text-sm max-w-md leading-relaxed mb-6"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          Your enquiry details have been pre-formatted for Manu Kumar. Review the text in WhatsApp and tap or click <strong className="text-white">Send</strong> to deliver your message.
+                        </p>
+
+                  {/* Fallback & Manual Launch CTA */}
+                  <div className="flex flex-col sm:flex-row items-center gap-3 mb-6 w-full sm:w-auto">
+                    <a
+                      href={whatsappUrls.primary}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl font-mono text-xs font-semibold tracking-wider uppercase text-white transition-all cursor-pointer shadow-lg hover:brightness-110"
                       style={{
-                        borderColor: errors.phone
-                          ? 'rgba(244, 63, 94, 0.8)'
-                          : 'var(--color-border-subtle)',
-                        boxShadow: errors.phone
-                          ? '0 0 12px rgba(244, 63, 94, 0.15)'
-                          : 'none',
-                      }}
-                      onFocus={(e) => {
-                        if (!errors.phone) {
-                          e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
-                          e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
-                        }
-                      }}
-                      onBlur={(e) => {
-                        if (!errors.phone) {
-                          e.target.style.borderColor = 'var(--color-border-subtle)'
-                          e.target.style.boxShadow = 'none'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
-                        }
-                      }}
-                    />
-
-                    {errors.phone && (
-                      <div
-                        id="contact-phone-error"
-                        role="alert"
-                        className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
-                      >
-                        <AlertCircle size={13} className="shrink-0" />
-                        <span>{errors.phone}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* FIELD 3: SUBJECT */}
-                  <div className="flex flex-col">
-                    <label
-                      htmlFor="contact-subject"
-                      className="font-mono text-xs tracking-wider font-semibold uppercase mb-2 flex items-center justify-between"
-                      style={{ color: 'var(--color-text-secondary)' }}
-                    >
-                      <span>
-                        SUBJECT <span className="text-cyan-400">*</span>
-                      </span>
-                      {errors.subject && (
-                        <span className="text-[11px] text-rose-400 normal-case font-sans">
-                          Subject required
-                        </span>
-                      )}
-                    </label>
-
-                    <input
-                      id="contact-subject"
-                      name="subject"
-                      type="text"
-                      required
-                      value={formData.subject}
-                      onChange={handleChange}
-                      placeholder="Project topic or inquiry title"
-                      aria-required="true"
-                      aria-invalid={!!errors.subject}
-                      aria-describedby={errors.subject ? 'contact-subject-error' : undefined}
-                      className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none"
-                      style={{
-                        borderColor: errors.subject
-                          ? 'rgba(244, 63, 94, 0.8)'
-                          : 'var(--color-border-subtle)',
-                        boxShadow: errors.subject
-                          ? '0 0 12px rgba(244, 63, 94, 0.15)'
-                          : 'none',
-                      }}
-                      onFocus={(e) => {
-                        if (!errors.subject) {
-                          e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
-                          e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
-                        }
-                      }}
-                      onBlur={(e) => {
-                        if (!errors.subject) {
-                          e.target.style.borderColor = 'var(--color-border-subtle)'
-                          e.target.style.boxShadow = 'none'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
-                        }
-                      }}
-                    />
-
-                    {errors.subject && (
-                      <div
-                        id="contact-subject-error"
-                        role="alert"
-                        className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
-                      >
-                        <AlertCircle size={13} className="shrink-0" />
-                        <span>{errors.subject}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* FIELD 4: DETAILED QUERY */}
-                  <div className="flex flex-col">
-                    <div className="flex items-center justify-between mb-2">
-                      <label
-                        htmlFor="contact-message"
-                        className="font-mono text-xs tracking-wider font-semibold uppercase"
-                        style={{ color: 'var(--color-text-secondary)' }}
-                      >
-                        DETAILED QUERY <span className="text-cyan-400">*</span>
-                      </label>
-                      <span
-                        className="font-mono text-[11px]"
-                        style={{
-                          color:
-                            formData.message.length > 4500
-                              ? '#f43f5e'
-                              : 'var(--color-text-tertiary)',
-                        }}
-                      >
-                        {formData.message.length} / 5,000
-                      </span>
-                    </div>
-
-                    <textarea
-                      id="contact-message"
-                      name="message"
-                      required
-                      rows={5}
-                      value={formData.message}
-                      onChange={handleChange}
-                      placeholder="Describe what you want to build, the technical scope, timeline, stack, or questions in detail..."
-                      aria-required="true"
-                      aria-invalid={!!errors.message}
-                      aria-describedby={errors.message ? 'contact-message-error' : undefined}
-                      className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none leading-relaxed resize-y"
-                      style={{
-                        minHeight: '160px',
-                        borderColor: errors.message
-                          ? 'rgba(244, 63, 94, 0.8)'
-                          : 'var(--color-border-subtle)',
-                        boxShadow: errors.message
-                          ? '0 0 12px rgba(244, 63, 94, 0.15)'
-                          : 'none',
-                      }}
-                      onFocus={(e) => {
-                        if (!errors.message) {
-                          e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
-                          e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
-                        }
-                      }}
-                      onBlur={(e) => {
-                        if (!errors.message) {
-                          e.target.style.borderColor = 'var(--color-border-subtle)'
-                          e.target.style.boxShadow = 'none'
-                          e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
-                        }
-                      }}
-                    />
-
-                    {errors.message && (
-                      <div
-                        id="contact-message-error"
-                        role="alert"
-                        className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
-                      >
-                        <AlertCircle size={13} className="shrink-0" />
-                        <span>{errors.message}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Server error feedback if any */}
-                  {status === 'error' && (
-                    <div
-                      role="alert"
-                      className="p-4 rounded-xl flex items-start gap-3 text-xs md:text-sm"
-                      style={{
-                        background: 'rgba(244, 63, 94, 0.1)',
-                        border: '1px solid rgba(244, 63, 94, 0.3)',
-                        color: '#fca5a5',
-                      }}
-                    >
-                      <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <span className="font-semibold block mb-0.5">Submission Notice</span>
-                        <span>{serverFeedback || 'Something went wrong. Please try again.'}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Submission CTA Button */}
-                  <div className="pt-2">
-                    <MagneticButton
-                      as="button"
-                      type="submit"
-                      disabled={status === 'submitting'}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-mono text-xs sm:text-sm font-semibold tracking-wider uppercase text-white transition-all cursor-pointer group shadow-lg"
-                      style={{
-                        background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #0284c7 100%)',
-                        border: '1px solid rgba(56, 189, 248, 0.4)',
-                        boxShadow: '0 8px 24px -4px rgba(37, 99, 235, 0.4), 0 0 16px rgba(56, 189, 248, 0.2)',
-                        opacity: status === 'submitting' ? 0.75 : 1,
-                        cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
+                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                        border: '1px solid rgba(52, 211, 153, 0.4)',
+                        boxShadow: '0 6px 20px -2px rgba(16, 185, 129, 0.35)',
                       }}
                       data-cursor="grow"
                     >
-                      {status === 'submitting' ? (
-                        <>
-                          <Loader2 size={16} className="animate-spin text-white" />
-                          <span>SENDING INQUIRY...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>SEND MESSAGE</span>
-                          <Send
-                            size={15}
-                            className="transition-transform duration-200 group-hover:translate-x-1 group-hover:-translate-y-0.5"
-                          />
-                        </>
-                      )}
-                    </MagneticButton>
+                      <WhatsAppIcon size={16} />
+                      <span>Open WhatsApp Now</span>
+                      <ExternalLink size={14} className="opacity-80" />
+                    </a>
+
+                    {!isMobile && (
+                      <a
+                        href={whatsappUrls.web}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-mono text-xs font-medium text-slate-300 transition-all hover:text-white hover:border-cyan-400/50"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.04)',
+                          border: '1px solid var(--color-border-subtle)',
+                        }}
+                        data-cursor="grow"
+                      >
+                        <span>Open in WhatsApp Web</span>
+                        <ExternalLink size={13} className="text-slate-400" />
+                      </a>
+                    )}
                   </div>
-                </form>
-              )}
-            </PointerCard>
+
+                  {popupBlocked && (
+                          <div
+                            className="text-[11px] font-mono text-amber-300/90 mb-6 px-3.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10"
+                          >
+                            Notice: If WhatsApp didn't open in a new tab automatically, click "Open WhatsApp Now" above.
+                          </div>
+                        )}
+
+                        <MagneticButton
+                          as="button"
+                          type="button"
+                          onClick={handleReset}
+                          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer"
+                          style={{
+                            background: 'rgba(56, 189, 248, 0.1)',
+                            border: '1px solid rgba(56, 189, 248, 0.35)',
+                            color: 'var(--color-text-primary)',
+                          }}
+                        >
+                          <RefreshCw size={14} className="text-cyan-400" />
+                          <span>EDIT OR SEND ANOTHER INQUIRY</span>
+                        </MagneticButton>
+                      </div>
+                    ) : (
+                      /* ============================================================ */
+                      /* ACTIVE CONTACT FORM                                          */
+                      /* ============================================================ */
+                      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+                        {/* Top Bar: Optional Intent Selector Chips */}
+                        <div className="flex flex-col gap-2.5 pb-2 border-b border-slate-800/80">
+                          <span
+                            className="font-mono text-[11px] tracking-wider uppercase font-semibold flex items-center justify-between"
+                            style={{ color: 'var(--color-text-tertiary)' }}
+                          >
+                            <span>WHAT ARE YOU REACHING OUT ABOUT?</span>
+                            <span className="text-[10px] text-slate-500 font-normal">OPTIONAL</span>
+                          </span>
+
+                          <div className="flex flex-wrap gap-2 pt-1" role="group" aria-label="Inquiry Intent">
+                            {INTENT_OPTIONS.map((intent) => {
+                              const isSelected = selectedIntent === intent.id
+                              return (
+                                <button
+                                  key={intent.id}
+                                  type="button"
+                                  onClick={() => handleIntentToggle(intent.id)}
+                                  aria-pressed={isSelected}
+                                  className="px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all duration-200 cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-cyan-400"
+                                  style={{
+                                    background: isSelected
+                                      ? 'rgba(56, 189, 248, 0.16)'
+                                      : 'rgba(255, 255, 255, 0.03)',
+                                    border: `1px solid ${isSelected ? 'rgba(56, 189, 248, 0.5)' : 'var(--color-border-subtle)'
+                                      }`,
+                                    color: isSelected
+                                      ? 'var(--color-accent-cyan)'
+                                      : 'var(--color-text-secondary)',
+                                    boxShadow: isSelected
+                                      ? '0 0 14px rgba(56, 189, 248, 0.2)'
+                                      : 'none',
+                                  }}
+                                  title={intent.hint}
+                                  data-cursor="grow"
+                                >
+                                  {intent.label}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Honeypot field (anti-spam, invisible to real visitors) */}
+                        <div style={{ display: 'none' }} aria-hidden="true">
+                          <label htmlFor="contact-website">Website</label>
+                          <input
+                            id="contact-website"
+                            type="text"
+                            name="website"
+                            value={formData.website}
+                            onChange={handleChange}
+                            tabIndex={-1}
+                            autoComplete="off"
+                          />
+                        </div>
+
+                        {/* FIELD 1: NAME */}
+                        <div className="flex flex-col">
+                          <label
+                            htmlFor="contact-name"
+                            className="font-mono text-xs tracking-wider font-semibold uppercase mb-2 flex items-center justify-between"
+                            style={{ color: 'var(--color-text-secondary)' }}
+                          >
+                            <span>
+                              NAME <span className="text-cyan-400">*</span>
+                            </span>
+                            {errors.name && (
+                              <span className="text-[11px] text-rose-400 normal-case font-sans">
+                                Name required
+                              </span>
+                            )}
+                          </label>
+
+                          <input
+                            id="contact-name"
+                            name="name"
+                            type="text"
+                            required
+                            value={formData.name}
+                            onChange={handleChange}
+                            placeholder="Your full name"
+                            autoComplete="name"
+                            aria-required="true"
+                            aria-invalid={!!errors.name}
+                            aria-describedby={errors.name ? 'contact-name-error' : undefined}
+                            className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none"
+                            style={{
+                              borderColor: errors.name
+                                ? 'rgba(244, 63, 94, 0.8)'
+                                : 'var(--color-border-subtle)',
+                              boxShadow: errors.name
+                                ? '0 0 12px rgba(244, 63, 94, 0.15)'
+                                : 'none',
+                            }}
+                            onFocus={(e) => {
+                              if (!errors.name) {
+                                e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
+                                e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
+                              }
+                            }}
+                            onBlur={(e) => {
+                              if (!errors.name) {
+                                e.target.style.borderColor = 'var(--color-border-subtle)'
+                                e.target.style.boxShadow = 'none'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
+                              }
+                            }}
+                          />
+
+                          {errors.name && (
+                            <div
+                              id="contact-name-error"
+                              role="alert"
+                              className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
+                            >
+                              <AlertCircle size={13} className="shrink-0" />
+                              <span>{errors.name}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* FIELD 2: EMAIL */}
+                        <div className="flex flex-col">
+                          <label
+                            htmlFor="contact-email"
+                            className="font-mono text-xs tracking-wider font-semibold uppercase mb-2 flex items-center justify-between"
+                            style={{ color: 'var(--color-text-secondary)' }}
+                          >
+                            <span>
+                              EMAIL <span className="text-cyan-400">*</span>
+                            </span>
+                            {errors.email && (
+                              <span className="text-[11px] text-rose-400 normal-case font-sans">
+                                Invalid address
+                              </span>
+                            )}
+                          </label>
+
+                          <input
+                            id="contact-email"
+                            name="email"
+                            type="email"
+                            required
+                            value={formData.email}
+                            onChange={handleChange}
+                            placeholder="your.email@domain.com"
+                            autoComplete="email"
+                            aria-required="true"
+                            aria-invalid={!!errors.email}
+                            aria-describedby={errors.email ? 'contact-email-error' : undefined}
+                            className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none"
+                            style={{
+                              borderColor: errors.email
+                                ? 'rgba(244, 63, 94, 0.8)'
+                                : 'var(--color-border-subtle)',
+                              boxShadow: errors.email
+                                ? '0 0 12px rgba(244, 63, 94, 0.15)'
+                                : 'none',
+                            }}
+                            onFocus={(e) => {
+                              if (!errors.email) {
+                                e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
+                                e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
+                              }
+                            }}
+                            onBlur={(e) => {
+                              if (!errors.email) {
+                                e.target.style.borderColor = 'var(--color-border-subtle)'
+                                e.target.style.boxShadow = 'none'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
+                              }
+                            }}
+                          />
+
+                          {errors.email && (
+                            <div
+                              id="contact-email-error"
+                              role="alert"
+                              className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
+                            >
+                              <AlertCircle size={13} className="shrink-0" />
+                              <span>{errors.email}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* FIELD 3: CONTACT NUMBER */}
+                        <div className="flex flex-col">
+                          <label
+                            htmlFor="contact-phone"
+                            className="font-mono text-xs tracking-wider font-semibold uppercase mb-2 flex items-center justify-between"
+                            style={{ color: 'var(--color-text-secondary)' }}
+                          >
+                            <span>
+                              CONTACT NUMBER <span className="text-cyan-400">*</span>
+                            </span>
+                            {errors.phone && (
+                              <span className="text-[11px] text-rose-400 normal-case font-sans">
+                                Phone required
+                              </span>
+                            )}
+                          </label>
+
+                          <input
+                            id="contact-phone"
+                            name="phone"
+                            type="tel"
+                            required
+                            value={formData.phone}
+                            onChange={handleChange}
+                            placeholder="+91 98765 43210"
+                            autoComplete="tel"
+                            aria-required="true"
+                            aria-invalid={!!errors.phone}
+                            aria-describedby={errors.phone ? 'contact-phone-error' : undefined}
+                            className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none"
+                            style={{
+                              borderColor: errors.phone
+                                ? 'rgba(244, 63, 94, 0.8)'
+                                : 'var(--color-border-subtle)',
+                              boxShadow: errors.phone
+                                ? '0 0 12px rgba(244, 63, 94, 0.15)'
+                                : 'none',
+                            }}
+                            onFocus={(e) => {
+                              if (!errors.phone) {
+                                e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
+                                e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
+                              }
+                            }}
+                            onBlur={(e) => {
+                              if (!errors.phone) {
+                                e.target.style.borderColor = 'var(--color-border-subtle)'
+                                e.target.style.boxShadow = 'none'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
+                              }
+                            }}
+                          />
+
+                          {errors.phone && (
+                            <div
+                              id="contact-phone-error"
+                              role="alert"
+                              className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
+                            >
+                              <AlertCircle size={13} className="shrink-0" />
+                              <span>{errors.phone}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* FIELD 4: SUBJECT */}
+                        <div className="flex flex-col">
+                          <label
+                            htmlFor="contact-subject"
+                            className="font-mono text-xs tracking-wider font-semibold uppercase mb-2 flex items-center justify-between"
+                            style={{ color: 'var(--color-text-secondary)' }}
+                          >
+                            <span>
+                              SUBJECT <span className="text-cyan-400">*</span>
+                            </span>
+                            {errors.subject && (
+                              <span className="text-[11px] text-rose-400 normal-case font-sans">
+                                Subject required
+                              </span>
+                            )}
+                          </label>
+
+                          <input
+                            id="contact-subject"
+                            name="subject"
+                            type="text"
+                            required
+                            value={formData.subject}
+                            onChange={handleChange}
+                            placeholder="Project topic or inquiry title"
+                            aria-required="true"
+                            aria-invalid={!!errors.subject}
+                            aria-describedby={errors.subject ? 'contact-subject-error' : undefined}
+                            className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none"
+                            style={{
+                              borderColor: errors.subject
+                                ? 'rgba(244, 63, 94, 0.8)'
+                                : 'var(--color-border-subtle)',
+                              boxShadow: errors.subject
+                                ? '0 0 12px rgba(244, 63, 94, 0.15)'
+                                : 'none',
+                            }}
+                            onFocus={(e) => {
+                              if (!errors.subject) {
+                                e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
+                                e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
+                              }
+                            }}
+                            onBlur={(e) => {
+                              if (!errors.subject) {
+                                e.target.style.borderColor = 'var(--color-border-subtle)'
+                                e.target.style.boxShadow = 'none'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
+                              }
+                            }}
+                          />
+
+                          {errors.subject && (
+                            <div
+                              id="contact-subject-error"
+                              role="alert"
+                              className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
+                            >
+                              <AlertCircle size={13} className="shrink-0" />
+                              <span>{errors.subject}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* FIELD 5: DETAILED QUERY */}
+                        <div className="flex flex-col">
+                          <div className="flex items-center justify-between mb-2">
+                            <label
+                              htmlFor="contact-message"
+                              className="font-mono text-xs tracking-wider font-semibold uppercase"
+                              style={{ color: 'var(--color-text-secondary)' }}
+                            >
+                              DETAILED QUERY <span className="text-cyan-400">*</span>
+                            </label>
+                            <span
+                              className="font-mono text-[11px]"
+                              style={{
+                                color:
+                                  formData.message.length > 4500
+                                    ? '#f43f5e'
+                                    : 'var(--color-text-tertiary)',
+                              }}
+                            >
+                              {formData.message.length} / 5,000
+                            </span>
+                          </div>
+
+                          <textarea
+                            id="contact-message"
+                            name="message"
+                            required
+                            rows={5}
+                            value={formData.message}
+                            onChange={handleChange}
+                            placeholder="Describe what you want to build, the technical scope, timeline, stack, or questions in detail..."
+                            aria-required="true"
+                            aria-invalid={!!errors.message}
+                            aria-describedby={errors.message ? 'contact-message-error' : undefined}
+                            className="w-full px-4.5 py-3.5 rounded-xl text-sm md:text-base text-slate-100 placeholder-slate-500 bg-slate-950/70 border transition-all duration-200 outline-none leading-relaxed resize-y"
+                            style={{
+                              minHeight: '160px',
+                              borderColor: errors.message
+                                ? 'rgba(244, 63, 94, 0.8)'
+                                : 'var(--color-border-subtle)',
+                              boxShadow: errors.message
+                                ? '0 0 12px rgba(244, 63, 94, 0.15)'
+                                : 'none',
+                            }}
+                            onFocus={(e) => {
+                              if (!errors.message) {
+                                e.target.style.borderColor = 'rgba(56, 189, 248, 0.6)'
+                                e.target.style.boxShadow = '0 0 16px rgba(56, 189, 248, 0.15)'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.95)'
+                              }
+                            }}
+                            onBlur={(e) => {
+                              if (!errors.message) {
+                                e.target.style.borderColor = 'var(--color-border-subtle)'
+                                e.target.style.boxShadow = 'none'
+                                e.target.style.backgroundColor = 'rgba(13, 17, 23, 0.7)'
+                              }
+                            }}
+                          />
+
+                          {errors.message && (
+                            <div
+                              id="contact-message-error"
+                              role="alert"
+                              className="flex items-center gap-1.5 mt-2 text-xs text-rose-400"
+                            >
+                              <AlertCircle size={13} className="shrink-0" />
+                              <span>{errors.message}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Submission CTA Button */}
+                        <div className="pt-2">
+                          <MagneticButton
+                            as="button"
+                            type="submit"
+                            disabled={status === 'submitting'}
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl font-mono text-xs sm:text-sm font-semibold tracking-wider uppercase text-white transition-all cursor-pointer group shadow-lg"
+                            style={{
+                              background: 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #0284c7 100%)',
+                              border: '1px solid rgba(56, 189, 248, 0.4)',
+                              boxShadow: '0 8px 24px -4px rgba(37, 99, 235, 0.4), 0 0 16px rgba(56, 189, 248, 0.2)',
+                              opacity: status === 'submitting' ? 0.75 : 1,
+                              cursor: status === 'submitting' ? 'not-allowed' : 'pointer',
+                            }}
+                            data-cursor="grow"
+                          >
+                            {status === 'submitting' ? (
+                              <>
+                                <Loader2 size={16} className="animate-spin text-white" />
+                                <span>PREPARING WHATSAPP...</span>
+                              </>
+                            ) : (
+                              <>
+                          <span>CONTINUE TO WHATSAPP</span>
+                                <WhatsAppIcon
+                                  size={16}
+                                  className="transition-transform duration-200 group-hover:scale-110"
+                                />
+                              </>
+                            )}
+                          </MagneticButton>
+                        </div>
+                      </form>
+                    )}
+                </PointerCard>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-    </section>
-  )
-}
+        </section>
+      )
+    }

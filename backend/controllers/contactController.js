@@ -1,7 +1,6 @@
 import { query, initDb } from '../db/index.js'
-import { sendContactEmail } from '../services/emailService.js'
 
-// Simple in-memory fallback log in case DB is offline during local dev
+// In-memory fallback log in case DB is offline during local development
 const fallbackLog = []
 
 /**
@@ -9,13 +8,16 @@ const fallbackLog = []
  *
  * Flow:
  * 1. Honeypot anti-spam check
- * 2. Sanitize and validate fields
- * 3. Send email to portfolio owner (manukumsr54@gmail.com) via nodemailer
- * 4. Persist to PostgreSQL (if database connected) or memory log
- * 5. Return clean production-safe response
+ * 2. Sanitize and validate inputs
+ * 3. Persist to PostgreSQL (if database connected) or in-memory fallback log
+ * 4. Return clean production-safe response
+ *
+ * Note: WhatsApp Click-to-Chat is the primary enquiry channel.
+ * Database persistence provides an inbox archive without depending on an email server.
  *
  * Payload:
  * {
+ *   name?: string (visitor name),
  *   email: string (required),
  *   phone: string (required),
  *   subject: string (required),
@@ -26,18 +28,19 @@ const fallbackLog = []
  */
 export async function handleContact(req, res, next) {
   try {
-    const { email, phone, subject, message, intent, website } = req.body || {}
+    const { name, email, phone, subject, message, intent, website } = req.body || {}
 
     // 1. Honeypot check (anti-spam)
     if (website) {
       console.log('[Contact] Honeypot triggered; silently dropping bot submission.')
       return res.status(200).json({
         success: true,
-        message: "Message received. Thanks — I'll get back to you.",
+        message: 'Enquiry received.',
       })
     }
 
     // 2. Input sanitization & validation
+    const trimmedName = typeof name === 'string' ? name.trim().slice(0, 255) : ''
     const trimmedEmail = typeof email === 'string' ? email.trim() : ''
     const trimmedPhone = typeof phone === 'string' ? phone.trim() : ''
     const trimmedSubject = typeof subject === 'string' ? subject.trim() : ''
@@ -52,7 +55,7 @@ export async function handleContact(req, res, next) {
       })
     }
 
-    // Phone validation (sensible length 7 to 25 chars, 7 to 16 digits, international format support)
+    // Phone validation (7 to 25 chars, 7 to 16 digits, international format support)
     const phoneCharsRegex = /^[+]?[\d\s()./-]{7,25}$/
     const phoneDigits = trimmedPhone.replace(/\D/g, '')
     if (!trimmedPhone || !phoneCharsRegex.test(trimmedPhone) || phoneDigits.length < 7 || phoneDigits.length > 16) {
@@ -75,45 +78,27 @@ export async function handleContact(req, res, next) {
       })
     }
 
-    // 3. Dispatch Email to portfolio owner
-    let emailResult = { delivered: false }
-    try {
-      emailResult = await sendContactEmail({
-        email: trimmedEmail,
-        phone: trimmedPhone,
-        subject: trimmedSubject,
-        message: trimmedMessage,
-        intent: trimmedIntent,
-      })
-    } catch (mailErr) {
-      // Server-side logging only; NEVER leak credentials or mail host errors to client
-      console.error('[Contact Mailer Error]:', mailErr.message)
-      return res.status(500).json({
-        error: 'Unable to deliver message right now. Please try again later or contact manukumsr54@gmail.com directly.',
-      })
-    }
-
-    // 4. Database persistence (parameterized SQL query, non-blocking)
+    // 3. Database persistence (parameterized SQL query, non-blocking)
     let recordId = null
     try {
       await initDb()
       const insertSql = `
-        INSERT INTO contact_messages (email, phone, subject, message, intent, status)
-        VALUES ($1, $2, $3, $4, $5, 'unread')
+        INSERT INTO contact_messages (name, email, phone, subject, message, intent, status)
+        VALUES ($1, $2, $3, $4, $5, $6, 'unread')
         RETURNING id, created_at;
       `
-      const params = [trimmedEmail, trimmedPhone, trimmedSubject, trimmedMessage, trimmedIntent]
+      const params = [trimmedName || null, trimmedEmail, trimmedPhone, trimmedSubject, trimmedMessage, trimmedIntent]
       const dbResult = await query(insertSql, params)
       if (dbResult?.rows?.[0]) {
         recordId = dbResult.rows[0].id
-        console.log(`[Contact] Message #${recordId} successfully recorded in PostgreSQL from ${trimmedEmail}`)
+        console.log(`[Contact] Message #${recordId} successfully recorded in PostgreSQL from ${trimmedName ? `${trimmedName} <${trimmedEmail}>` : trimmedEmail}`)
       }
     } catch (dbErr) {
-      // Non-fatal database notice; email has already been dispatched/simulated
       console.warn('[Contact Database Notice]: Database write skipped (' + dbErr.message + ')')
 
       // Retain in local memory log so submission is never lost
       fallbackLog.push({
+        name: trimmedName,
         email: trimmedEmail,
         phone: trimmedPhone,
         subject: trimmedSubject,
@@ -126,8 +111,8 @@ export async function handleContact(req, res, next) {
 
     return res.status(200).json({
       success: true,
-      message: "Message received. Thanks — I'll get back to you.",
-      id: recordId || emailResult.messageId || null,
+      message: 'Enquiry successfully recorded.',
+      id: recordId || null,
     })
   } catch (err) {
     next(err)

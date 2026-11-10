@@ -12,7 +12,7 @@ export const aboutIdentity = {
   role: 'Student Coordinator — ABESEC SSC-CCPD',
   education: '2nd-Year B.Tech CSE Student at ABESEC Ghaziabad',
   institution: 'ABESEC Ghaziabad',
-  cohort: '2024–2028',
+  cohort: '2025–2029',
   headline: 'Engineering practical software, learning from the ground up.',
   bio: [
     '2nd-year B.Tech Computer Science and Engineering student at ABESEC. Focused on full-stack architecture, clean engineering principles, and building dependable web applications.',

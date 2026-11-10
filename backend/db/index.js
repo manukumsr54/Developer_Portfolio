@@ -17,22 +17,22 @@ const requiresSsl =
 
 const poolConfig = process.env.DATABASE_URL
   ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: requiresSsl ? { rejectUnauthorized: false } : false,
-      max: parseInt(process.env.PG_MAX_POOL || '10', 10),
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-    }
+    connectionString: process.env.DATABASE_URL,
+    ssl: requiresSsl ? { rejectUnauthorized: false } : false,
+    max: parseInt(process.env.PG_MAX_POOL || '10', 10),
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  }
   : {
-      user: process.env.PGUSER || 'postgres',
-      host: process.env.PGHOST || 'localhost',
-      database: process.env.PGDATABASE || 'portfolio',
-      password: process.env.PGPASSWORD || '',
-      port: parseInt(process.env.PGPORT || '5432', 10),
-      max: 10,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-    }
+    user: process.env.PGUSER || 'postgres',
+    host: process.env.PGHOST || 'localhost',
+    database: process.env.PGDATABASE || 'portfolio',
+    password: process.env.PGPASSWORD || '',
+    port: parseInt(process.env.PGPORT || '5432', 10),
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  }
 
 export const pool = new Pool(poolConfig)
 
@@ -58,6 +58,7 @@ export async function initDb() {
         await client.query(`
           CREATE TABLE IF NOT EXISTS contact_messages (
             id SERIAL PRIMARY KEY,
+            name VARCHAR(255),
             email VARCHAR(255) NOT NULL,
             phone VARCHAR(50) NOT NULL,
             subject VARCHAR(500) NOT NULL,
@@ -66,6 +67,7 @@ export async function initDb() {
             status VARCHAR(50) DEFAULT 'unread',
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
           );
+          ALTER TABLE contact_messages ADD COLUMN IF NOT EXISTS name VARCHAR(255);
           CREATE INDEX IF NOT EXISTS idx_contact_messages_created_at ON contact_messages(created_at DESC);
           CREATE INDEX IF NOT EXISTS idx_contact_messages_status ON contact_messages(status);
         `)

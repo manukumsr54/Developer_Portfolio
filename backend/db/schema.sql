@@ -1,10 +1,11 @@
 -- ============================================================
 -- Portfolio Database Schema
--- Phase 6: Contact System Table
+-- Contact System Table
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS contact_messages (
   id SERIAL PRIMARY KEY,
+  name VARCHAR(255),
   email VARCHAR(255) NOT NULL,
   phone VARCHAR(50) NOT NULL,
   subject VARCHAR(500) NOT NULL,
